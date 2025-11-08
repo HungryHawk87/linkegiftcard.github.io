@@ -813,15 +813,15 @@ function showPaymentOptions(){
 // UPDATE BANK LIST BASED ON CURRENCY
 // ========================================
 function updateBankListFromCurrency(currencyStr) {
-  let currencyCode = 'INR';
+  let currencyCode = 'SAR';
   
   if (currencyStr.includes('SAR') || currencyStr.includes('﷼')) currencyCode = 'SAR';
-  else if (currencyStr.includes('USD') || currencyStr.includes(')) currencyCode = 'USD';
+  else if (currencyStr.includes('USD') || currencyStr.includes('$')) currencyCode = 'USD';
   else if (currencyStr.includes('EUR') || currencyStr.includes('€')) currencyCode = 'EUR';
   else if (currencyStr.includes('AED') || currencyStr.includes('د.إ')) currencyCode = 'AED';
   else if (currencyStr.includes('INR') || currencyStr.includes('₹')) currencyCode = 'INR';
   
-  const bankList = banks[currencyCode] || banks['INR'];
+  const bankList = banks[currencyCode] || banks['SAR'];
   
   bankSelect.innerHTML = '<option value="">-- Select Bank --</option>';
   bankList.forEach(bank => {
