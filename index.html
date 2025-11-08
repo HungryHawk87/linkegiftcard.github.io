@@ -256,8 +256,8 @@
             <!-- BANK TRANSFER OPTIONS -->
             <div id="bankOptions" class="payment-details">
               <label>Select Your Bank *</label>
-              <select id="bankSelect" onchange="updateBankList()">
-                <option value="">-- Select Currency First --</option>
+              <select id="bankSelect">
+                <option value="">-- Select Bank --</option>
               </select>
 
               <label>Account Holder Name *</label>
@@ -300,6 +300,43 @@
   </div>
 
 <script>
+// ========================================
+// 🔧 API CONFIGURATION - UPDATE THIS URL!
+// ========================================
+const API_URL = 'https://like-giftcards-api.onrender.com/api';
+// ⬆️ Replace with YOUR actual Render URL after deployment
+
+// ========================================
+// HELPER FUNCTIONS
+// ========================================
+
+// API Call Helper
+async function apiCall(endpoint, method = 'GET', data = null) {
+  try {
+    const options = {
+      method,
+      headers: { 'Content-Type': 'application/json' }
+    };
+    if (data) options.body = JSON.stringify(data);
+    
+    const response = await fetch(`${API_URL}${endpoint}`, options);
+    const result = await response.json();
+    
+    if (!response.ok) {
+      throw new Error(result.message || 'Request failed');
+    }
+    return result;
+  } catch (error) {
+    console.error('API Error:', error);
+    throw error;
+  }
+}
+
+// Email Validation
+function validateEmail(email) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
 // Tab switching
 function switchTab(tab) {
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
@@ -349,26 +386,9 @@ const banks = {
   ]
 };
 
-// Storage for gift cards (in production, this would be in a database)
-let giftCards = {};
-
-// CREATE GIFT CARD SECTION
-function generateCode(prefix='LIKE', groups=3, chars=4){
-  const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-  const arr = new Uint32Array(groups*chars);
-  crypto.getRandomValues(arr);
-  const parts = [];
-  let idx=0;
-  for(let g=0;g<groups;g++){
-    let part='';
-    for(let c=0;c<chars;c++){
-      part += alphabet[arr[idx++] % alphabet.length];
-    }
-    parts.push(part);
-  }
-  return prefix + '-' + parts.join('-');
-}
-
+// ========================================
+// DOM ELEMENTS
+// ========================================
 const recipient = document.getElementById('recipient');
 const recipientEmail = document.getElementById('recipientEmail');
 const senderEmail = document.getElementById('senderEmail');
@@ -390,6 +410,9 @@ const loadTemplate = document.getElementById('loadTemplate');
 const successMsg = document.getElementById('successMsg');
 const errorMsg = document.getElementById('errorMsg');
 
+// ========================================
+// DISPLAY FUNCTIONS
+// ========================================
 function updatePreview(){
   amountPreview.textContent = amount.value || '0';
   const currSymbol = currency.value || '₹ ';
@@ -415,33 +438,64 @@ function showError(msg = '✗ Please fix the errors above'){
   }, 3000);
 }
 
-function validateEmail(email) {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-}
-
-generateBtn.addEventListener('click', ()=>{
-  const c = generateCode('LIKE',3,4);
-  codeField.value = c;
-  codePreview.textContent = c;
-  
-  // Store gift card data
-  giftCards[c] = {
-    code: c,
-    amount: amount.value,
-    currency: currency.value,
-    status: 'active',
-    createdAt: new Date().toISOString()
-  };
-  
+// ========================================
+// CREATE GIFT CARD - UPDATED WITH API
+// ========================================
+generateBtn.addEventListener('click', async () => {
   try {
-    localStorage.setItem('like_giftcards', JSON.stringify(giftCards));
-  } catch(e) {
-    console.error('Could not save to storage');
+    // Validation
+    if (!senderEmail.value || !validateEmail(senderEmail.value)) {
+      showError('✗ Please enter a valid sender email');
+      senderEmail.focus();
+      return;
+    }
+    
+    if (!amount.value || amount.value < 1) {
+      showError('✗ Please enter a valid amount');
+      amount.focus();
+      return;
+    }
+
+    if (recipientEmail.value && !validateEmail(recipientEmail.value)) {
+      showError('✗ Recipient email is invalid');
+      recipientEmail.focus();
+      return;
+    }
+    
+    // Show loading state
+    generateBtn.disabled = true;
+    generateBtn.textContent = 'Generating...';
+    
+    // Call API
+    const result = await apiCall('/giftcards/create', 'POST', {
+      recipient: recipient.value,
+      recipientEmail: recipientEmail.value,
+      senderEmail: senderEmail.value,
+      amount: parseFloat(amount.value),
+      currency: currency.options[currency.selectedIndex].text,
+      currencySymbol: currency.value,
+      message: message.value || 'A special gift for you!',
+      denomType: document.getElementById('denomType').value
+    });
+    
+    if (result.success) {
+      codeField.value = result.data.code;
+      codePreview.textContent = result.data.code;
+      updatePreview();
+      showSuccess('✓ Gift card created successfully!');
+    }
+    
+  } catch (error) {
+    showError('✗ Failed to create: ' + error.message);
+  } finally {
+    generateBtn.disabled = false;
+    generateBtn.textContent = 'Generate Gift Card';
   }
-  
-  updatePreview();
 });
 
+// ========================================
+// RESET BUTTON
+// ========================================
 resetBtn.addEventListener('click', ()=>{
   recipient.value=''; 
   recipientEmail.value='';
@@ -454,6 +508,9 @@ resetBtn.addEventListener('click', ()=>{
   updatePreview();
 });
 
+// ========================================
+// COPY CODE BUTTON
+// ========================================
 copyBtn.addEventListener('click', ()=>{
   if(!codeField.value){ 
     alert('Generate a code first.'); 
@@ -466,6 +523,9 @@ copyBtn.addEventListener('click', ()=>{
   });
 });
 
+// ========================================
+// CANVAS DRAWING (for PNG download)
+// ========================================
 async function drawCardToCanvas(){
   const canvas = document.getElementById('exportCanvas');
   const ctx = canvas.getContext('2d');
@@ -521,6 +581,9 @@ async function drawCardToCanvas(){
   });
 }
 
+// ========================================
+// DOWNLOAD PNG BUTTON
+// ========================================
 downloadBtn.addEventListener('click', async ()=>{
   if(!codeField.value){ 
     alert('Generate a card first.'); 
@@ -539,6 +602,9 @@ downloadBtn.addEventListener('click', async ()=>{
   }
 });
 
+// ========================================
+// EMAIL BUTTON (opens mailto)
+// ========================================
 emailBtn.addEventListener('click', async ()=>{
   if(!codeField.value){ 
     showError('✗ Please generate a gift card first');
@@ -562,8 +628,6 @@ emailBtn.addEventListener('click', async ()=>{
     const giftMessage = message.value || 'A special gift for you!';
     const cardAmount = currency.value + amount.value;
     
-    const imageData = await drawCardToCanvas();
-    
     const subject = encodeURIComponent(`Your LIKE Gift Card - ${cardAmount}`);
     const body = encodeURIComponent(
       `Hi ${recipientName},\n\n` +
@@ -571,7 +635,7 @@ emailBtn.addEventListener('click', async ()=>{
       `Gift Card Code: ${codeField.value}\n` +
       `Amount: ${cardAmount}\n` +
       `Message: ${giftMessage}\n\n` +
-      `To redeem your gift card, visit our redemption page and enter your code.\n\n` +
+      `To redeem your gift card, visit https://hungryhawk87.github.io/linkegiftcard.github.io/ and enter your code.\n\n` +
       `Thank you for choosing LIKE!\n\n` +
       `---\n` +
       `This gift card was sent from: ${senderEmail.value}\n` +
@@ -602,6 +666,9 @@ emailBtn.addEventListener('click', async ()=>{
   }
 });
 
+// ========================================
+// SAVE/LOAD TEMPLATE (uses localStorage for templates only)
+// ========================================
 saveTemplate.addEventListener('click', ()=>{
   const template = {
     amount: amount.value, 
@@ -642,17 +709,9 @@ amount.addEventListener('input', updatePreview);
 currency.addEventListener('change', updatePreview); 
 message.addEventListener('input', updatePreview);
 
-// Load existing gift cards from storage
-try {
-  const stored = localStorage.getItem('like_giftcards');
-  if(stored) {
-    giftCards = JSON.parse(stored);
-  }
-} catch(e) {
-  console.error('Could not load gift cards');
-}
-
+// ========================================
 // REDEEM SECTION
+// ========================================
 const redeemCode = document.getElementById('redeemCode');
 const verifyBtn = document.getElementById('verifyBtn');
 const redeemDetails = document.getElementById('redeemDetails');
@@ -682,34 +741,61 @@ function showRedeemError(msg){
   }, 3000);
 }
 
-verifyBtn.addEventListener('click', ()=>{
-  const code = redeemCode.value.trim().toUpperCase();
-  
-  if(!code){
-    showRedeemError('✗ Please enter a gift card code');
-    return;
-  }
-  
-  // Check if gift card exists
-  if(giftCards[code] && giftCards[code].status === 'active'){
-    const card = giftCards[code];
+// ========================================
+// VERIFY GIFT CARD - UPDATED WITH API
+// ========================================
+verifyBtn.addEventListener('click', async () => {
+  try {
+    const code = redeemCode.value.trim().toUpperCase();
     
-    document.getElementById('verifiedCode').textContent = card.code;
-    document.getElementById('verifiedAmount').textContent = card.amount;
-    document.getElementById('verifiedCurrency').textContent = card.currency;
-    document.getElementById('verifiedStatus').textContent = 'Active';
+    if (!code) {
+      showRedeemError('✗ Please enter a gift card code');
+      return;
+    }
     
-    redeemDetails.classList.add('show');
-    showRedeemSuccess('✓ Gift card verified successfully!');
+    // Show loading
+    verifyBtn.disabled = true;
+    verifyBtn.textContent = 'Verifying...';
     
-    // Update bank list based on currency
-    updateBankList();
-  } else {
+    // Call API
+    const result = await apiCall('/giftcards/verify', 'POST', { code });
+    
+    if (result.success) {
+      const card = result.data;
+      
+      // Update UI
+      document.getElementById('verifiedCode').textContent = card.code;
+      document.getElementById('verifiedAmount').textContent = card.amount;
+      document.getElementById('verifiedCurrency').textContent = card.currencySymbol || card.currency;
+      
+      const statusEl = document.getElementById('verifiedStatus');
+      statusEl.textContent = card.status.charAt(0).toUpperCase() + card.status.slice(1);
+      statusEl.style.color = card.status === 'active' ? '#00c853' : '#ff3b30';
+      
+      if (card.status === 'active') {
+        redeemDetails.classList.add('show');
+        showRedeemSuccess('✓ Gift card verified successfully!');
+        
+        // Update bank list based on currency
+        updateBankListFromCurrency(card.currency);
+      } else {
+        redeemDetails.classList.remove('show');
+        showRedeemError(`✗ Gift card is ${card.status}`);
+      }
+    }
+    
+  } catch (error) {
     redeemDetails.classList.remove('show');
-    showRedeemError('✗ Invalid or already redeemed gift card code');
+    showRedeemError('✗ ' + error.message);
+  } finally {
+    verifyBtn.disabled = false;
+    verifyBtn.textContent = 'Verify Gift Card';
   }
 });
 
+// ========================================
+// PAYMENT OPTIONS TOGGLE
+// ========================================
 function showPaymentOptions(){
   const method = withdrawalMethod.value;
   
@@ -723,18 +809,17 @@ function showPaymentOptions(){
   }
 }
 
-function updateBankList(){
-  const code = redeemCode.value.trim().toUpperCase();
-  if(!giftCards[code]) return;
-  
-  const curr = giftCards[code].currency.trim();
+// ========================================
+// UPDATE BANK LIST BASED ON CURRENCY
+// ========================================
+function updateBankListFromCurrency(currencyStr) {
   let currencyCode = 'INR';
   
-  if(curr.includes('﷼')) currencyCode = 'SAR';
-  else if(curr.includes(')) currencyCode = 'USD';
-  else if(curr.includes('€')) currencyCode = 'EUR';
-  else if(curr.includes('د.إ')) currencyCode = 'AED';
-  else if(curr.includes('₹')) currencyCode = 'INR';
+  if (currencyStr.includes('SAR') || currencyStr.includes('﷼')) currencyCode = 'SAR';
+  else if (currencyStr.includes('USD') || currencyStr.includes(')) currencyCode = 'USD';
+  else if (currencyStr.includes('EUR') || currencyStr.includes('€')) currencyCode = 'EUR';
+  else if (currencyStr.includes('AED') || currencyStr.includes('د.إ')) currencyCode = 'AED';
+  else if (currencyStr.includes('INR') || currencyStr.includes('₹')) currencyCode = 'INR';
   
   const bankList = banks[currencyCode] || banks['INR'];
   
@@ -747,107 +832,115 @@ function updateBankList(){
   });
 }
 
-submitRedeemBtn.addEventListener('click', ()=>{
-  const code = redeemCode.value.trim().toUpperCase();
-  const method = withdrawalMethod.value;
-  const email = document.getElementById('redeemEmail').value;
-  
-  // Validation
-  if(!giftCards[code] || giftCards[code].status !== 'active'){
-    showRedeemError('✗ Invalid gift card');
-    return;
-  }
-  
-  if(!method){
-    showRedeemError('✗ Please select a withdrawal method');
-    return;
-  }
-  
-  if(!email || !validateEmail(email)){
-    showRedeemError('✗ Please enter a valid email address');
-    return;
-  }
-  
-  // Bank transfer validation
-  if(method === 'bank'){
-    const bank = bankSelect.value;
-    const accName = document.getElementById('accountName').value;
-    const accNum = document.getElementById('accountNumber').value;
-    
-    if(!bank || !accName || !accNum){
-      showRedeemError('✗ Please fill in all bank details');
-      return;
-    }
-  }
-  
-  // Crypto validation
-  if(method === 'crypto'){
-    const network = document.getElementById('cryptoNetwork').value;
-    const wallet = document.getElementById('walletAddress').value;
-    
-    if(!network || !wallet){
-      showRedeemError('✗ Please fill in all crypto details');
-      return;
-    }
-    
-    if(wallet.length < 26){
-      showRedeemError('✗ Invalid wallet address');
-      return;
-    }
-  }
-  
-  // Process redemption
-  const card = giftCards[code];
-  card.status = 'redeemed';
-  card.redeemedAt = new Date().toISOString();
-  card.redemptionMethod = method;
-  
+// ========================================
+// SUBMIT REDEMPTION - UPDATED WITH API
+// ========================================
+submitRedeemBtn.addEventListener('click', async () => {
   try {
-    localStorage.setItem('like_giftcards', JSON.stringify(giftCards));
-  } catch(e) {
-    console.error('Could not save redemption');
+    const code = redeemCode.value.trim().toUpperCase();
+    const method = withdrawalMethod.value;
+    const email = document.getElementById('redeemEmail').value;
+    
+    // Validation
+    if (!code) {
+      showRedeemError('✗ Invalid gift card code');
+      return;
+    }
+    
+    if (!method) {
+      showRedeemError('✗ Please select a withdrawal method');
+      return;
+    }
+    
+    if (!email || !validateEmail(email)) {
+      showRedeemError('✗ Please enter a valid email');
+      return;
+    }
+    
+    let requestData = {
+      code,
+      withdrawalMethod: method,
+      email
+    };
+    
+    // Bank transfer validation
+    if (method === 'bank') {
+      const bank = bankSelect.value;
+      const accName = document.getElementById('accountName').value;
+      const accNum = document.getElementById('accountNumber').value;
+      
+      if (!bank || !accName || !accNum) {
+        showRedeemError('✗ Please fill in all bank details');
+        return;
+      }
+      
+      requestData.bankName = bank;
+      requestData.accountName = accName;
+      requestData.accountNumber = accNum;
+      requestData.swiftCode = document.getElementById('swiftCode').value;
+    }
+    
+    // Crypto validation
+    if (method === 'crypto') {
+      const network = document.getElementById('cryptoNetwork').value;
+      const wallet = document.getElementById('walletAddress').value;
+      
+      if (!network || !wallet) {
+        showRedeemError('✗ Please fill in all crypto details');
+        return;
+      }
+      
+      if (wallet.length < 26) {
+        showRedeemError('✗ Invalid wallet address');
+        return;
+      }
+      
+      requestData.cryptoNetwork = network;
+      requestData.walletAddress = wallet;
+    }
+    
+    // Show loading
+    submitRedeemBtn.disabled = true;
+    submitRedeemBtn.textContent = 'Processing...';
+    
+    // Call API
+    const result = await apiCall('/giftcards/redeem', 'POST', requestData);
+    
+    if (result.success) {
+      document.getElementById('verifiedStatus').textContent = 'Redeemed';
+      document.getElementById('verifiedStatus').style.color = '#ff3b30';
+      
+      showRedeemSuccess('✓ Redemption successful! Check your email for confirmation.');
+      
+      // Reset form after 3 seconds
+      setTimeout(() => {
+        redeemCode.value = '';
+        redeemDetails.classList.remove('show');
+        withdrawalMethod.value = '';
+        document.getElementById('redeemEmail').value = '';
+        bankOptions.classList.remove('show');
+        cryptoOptions.classList.remove('show');
+        document.getElementById('accountName').value = '';
+        document.getElementById('accountNumber').value = '';
+        document.getElementById('swiftCode').value = '';
+        document.getElementById('cryptoNetwork').value = '';
+        document.getElementById('walletAddress').value = '';
+      }, 3000);
+    }
+    
+  } catch (error) {
+    showRedeemError('✗ ' + error.message);
+  } finally {
+    submitRedeemBtn.disabled = false;
+    submitRedeemBtn.textContent = 'Submit Redemption Request';
   }
-  
-  // Prepare confirmation details
-  let paymentDetails = '';
-  if(method === 'bank'){
-    paymentDetails = `Bank: ${bankSelect.value}\n` +
-                     `Account Name: ${document.getElementById('accountName').value}\n` +
-                     `Account Number: ${document.getElementById('accountNumber').value}\n` +
-                     `Swift/BIC: ${document.getElementById('swiftCode').value || 'N/A'}`;
-  } else {
-    paymentDetails = `Network: ${document.getElementById('cryptoNetwork').value}\n` +
-                     `Wallet Address: ${document.getElementById('walletAddress').value}`;
-  }
-  
-  // Send confirmation email
-  const subject = encodeURIComponent(`LIKE Gift Card Redemption - ${code}`);
-  const body = encodeURIComponent(
-    `Gift Card Redemption Request\n\n` +
-    `Code: ${code}\n` +
-    `Amount: ${card.currency}${card.amount}\n` +
-    `Withdrawal Method: ${method === 'bank' ? 'Bank Transfer' : 'Cryptocurrency'}\n\n` +
-    `Payment Details:\n${paymentDetails}\n\n` +
-    `Email: ${email}\n\n` +
-    `Your redemption request has been submitted successfully. You will receive the funds within 2-3 business days.\n\n` +
-    `Thank you for using LIKE!`
-  );
-  
-  window.location.href = `mailto:${email}?subject=${subject}&body=${body}`;
-  
-  // Update UI
-  document.getElementById('verifiedStatus').textContent = 'Redeemed';
-  document.getElementById('verifiedStatus').style.color = '#ff3b30';
-  
-  showRedeemSuccess('✓ Redemption request submitted successfully! Check your email for confirmation.');
-  
-  // Reset form after 3 seconds
-  setTimeout(() => {
-    redeemCode.value = '';
-    redeemDetails.classList.remove('show');
-    withdrawalMethod.value = '';
-    document.getElementById('redeemEmail').value = '';
-    bankOptions.classList.remove('show');
-    cryptoOptions.classList.remove('show');
-  }, 3000);
 });
+
+// ========================================
+// LOG API CONNECTION
+// ========================================
+console.log('✓ Frontend connected to API:', API_URL);
+console.log('✓ LIKE Gift Cards system ready!');
+</script>
+</body>
+</html>
