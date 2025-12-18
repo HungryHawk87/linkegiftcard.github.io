@@ -478,12 +478,20 @@ generateBtn.addEventListener('click', async () => {
 
     // ✅ OPEN RAZORPAY
     const options = {
+      method: {
+  upi: true,
+  card: true,
+  netbanking: true,
+  wallet: false
+}
+
       key: RAZORPAY_KEY,
       amount: order.amount,
       currency: "INR",
       name: "LIKE Gift Cards",
       description: "Gift Card Purchase",
       order_id: order.id,
+      
 
       handler: async function (response) {
         // ✅ VERIFY PAYMENT
