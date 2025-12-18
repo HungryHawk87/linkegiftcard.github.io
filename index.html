@@ -85,6 +85,8 @@
 <body>
   <div class="container">
     <div class="tabs">
+      <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+
       <button class="tab active" onclick="switchTab('create')">Create Gift Card</button>
       <button class="tab" onclick="switchTab('redeem')">Redeem Gift Card</button>
     </div>
@@ -304,6 +306,8 @@
 // 🔧 API CONFIGURATION - UPDATE THIS URL!
 // ========================================
 const API_URL = 'https://like-giftcards-api.onrender.com/api';
+  const RAZORPAY_KEY = "rzp_test_Rt5D7w6TXkud69";
+
 // ⬆️ Replace with YOUR actual Render URL after deployment
 
 // ========================================
@@ -443,55 +447,91 @@ function showError(msg = '✗ Please fix the errors above'){
 // ========================================
 generateBtn.addEventListener('click', async () => {
   try {
-    // Validation
+    // ✅ Validation
     if (!senderEmail.value || !validateEmail(senderEmail.value)) {
       showError('✗ Please enter a valid sender email');
-      senderEmail.focus();
-      return;
-    }
-    
-    if (!amount.value || amount.value < 1) {
-      showError('✗ Please enter a valid amount');
-      amount.focus();
       return;
     }
 
-    if (recipientEmail.value && !validateEmail(recipientEmail.value)) {
-      showError('✗ Recipient email is invalid');
-      recipientEmail.focus();
+    if (!amount.value || amount.value < 1) {
+      showError('✗ Please enter a valid amount');
       return;
     }
-    
-    // Show loading state
+
     generateBtn.disabled = true;
-    generateBtn.textContent = 'Generating...';
-    
-    // Call API
-    const result = await apiCall('/giftcards/create', 'POST', {
-      recipient: recipient.value,
-      recipientEmail: recipientEmail.value,
-      senderEmail: senderEmail.value,
-      amount: parseFloat(amount.value),
-      currency: currency.options[currency.selectedIndex].text,
-      currencySymbol: currency.value,
-      message: message.value || 'A special gift for you!',
-      denomType: document.getElementById('denomType').value
-    });
-    
-    if (result.success) {
-      codeField.value = result.data.code;
-      codePreview.textContent = result.data.code;
-      updatePreview();
-      showSuccess('✓ Gift card created successfully!');
-    }
-    
-  } catch (error) {
-    showError('✗ Failed to create: ' + error.message);
+    generateBtn.textContent = 'Redirecting to payment...';
+
+    // ✅ CREATE RAZORPAY ORDER
+    const orderRes = await fetch(
+      `${API_URL}/razorpay/create-order`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          amount: amount.value,
+          email: senderEmail.value
+        })
+      }
+    );
+
+    const order = await orderRes.json();
+
+    // ✅ OPEN RAZORPAY
+    const options = {
+      key: RAZORPAY_KEY,
+      amount: order.amount,
+      currency: "INR",
+      name: "LIKE Gift Cards",
+      description: "Gift Card Purchase",
+      order_id: order.id,
+
+      handler: async function (response) {
+        // ✅ VERIFY PAYMENT
+        const verifyRes = await fetch(
+          `${API_URL}/razorpay/verify`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              ...response,
+              recipient: recipient.value,
+              recipientEmail: recipientEmail.value,
+              senderEmail: senderEmail.value,
+              amount: amount.value,
+              currency: currency.options[currency.selectedIndex].text,
+              currencySymbol: currency.value,
+              message: message.value,
+              denomType: document.getElementById('denomType').value
+            })
+          }
+        );
+
+        const result = await verifyRes.json();
+
+        if (result.success) {
+          codeField.value = result.code;
+          codePreview.textContent = result.code;
+          updatePreview();
+          showSuccess('✓ Payment successful! Gift card created.');
+        } else {
+          showError('✗ Payment verification failed');
+        }
+      },
+
+      theme: { color: "#ff8a00" }
+    };
+
+    new Razorpay(options).open();
+
+  } catch (err) {
+    console.error(err);
+    showError('✗ Payment failed');
   } finally {
     generateBtn.disabled = false;
     generateBtn.textContent = 'Generate Gift Card';
   }
 });
+
 
 // ========================================
 // RESET BUTTON
