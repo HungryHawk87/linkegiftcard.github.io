@@ -73,20 +73,44 @@
     .redeem-result{background:rgba(255,255,255,0.02);padding:20px;border-radius:12px;margin-top:16px;display:none}
     .redeem-result.show{display:block}
     
+    /* UPI Payment Styles */
+    .payment-modal{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.8);z-index:1000;align-items:center;justify-content:center}
+    .payment-modal.show{display:flex}
+    .payment-content{background:linear-gradient(180deg,#0f2540,#071a33);border-radius:16px;padding:32px;max-width:500px;width:90%;max-height:90vh;overflow-y:auto;position:relative}
+    .close-modal{position:absolute;top:16px;right:16px;background:transparent;border:0;color:#fff;font-size:28px;cursor:pointer;width:32px;height:32px;display:flex;align-items:center;justify-content:center;border-radius:50%;transition:background 0.2s}
+    .close-modal:hover{background:rgba(255,255,255,0.1)}
+    
+    .upi-options{display:grid;gap:12px;margin-top:16px}
+    .upi-btn{display:flex;align-items:center;gap:12px;padding:16px;background:rgba(255,255,255,0.05);border:2px solid rgba(255,255,255,0.1);border-radius:12px;cursor:pointer;transition:all 0.3s;text-align:left}
+    .upi-btn:hover{background:rgba(255,255,255,0.08);border-color:var(--accent);transform:translateY(-2px)}
+    .upi-btn img{width:48px;height:48px;border-radius:8px}
+    .upi-btn-content h4{margin:0 0 4px 0;font-size:16px;color:#fff}
+    .upi-btn-content p{margin:0;font-size:12px;color:var(--muted)}
+    
+    .qr-section{text-align:center;padding:20px;background:rgba(255,255,255,0.03);border-radius:12px;margin-top:16px}
+    .qr-code{width:200px;height:200px;background:#fff;margin:16px auto;border-radius:12px;display:flex;align-items:center;justify-content:center;padding:12px}
+    .qr-code img{width:100%;height:100%}
+    .upi-id{background:rgba(255,255,255,0.08);padding:12px;border-radius:8px;margin:12px 0;font-family:monospace;font-size:14px;word-break:break-all}
+    
+    .payment-timer{text-align:center;margin:16px 0;font-size:18px;font-weight:600;color:var(--accent)}
+    
+    .payment-instructions{background:rgba(255,138,0,0.1);border:1px solid rgba(255,138,0,0.3);padding:12px;border-radius:8px;margin-top:12px}
+    .payment-instructions ol{margin:8px 0;padding-left:20px}
+    .payment-instructions li{margin:6px 0;font-size:13px}
+    
     footer{text-align:center;color:var(--muted);font-size:13px;margin-top:20px}
 
     @media (max-width:920px){
       .app{grid-template-columns:1fr;max-width:720px}
       .preview{order:2}
       .tabs{flex-wrap:wrap}
+      .payment-content{padding:24px}
     }
   </style>
 </head>
 <body>
   <div class="container">
     <div class="tabs">
-      <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
-
       <button class="tab active" onclick="switchTab('create')">Create Gift Card</button>
       <button class="tab" onclick="switchTab('redeem')">Redeem Gift Card</button>
     </div>
@@ -144,13 +168,13 @@
           </select>
 
           <div style="display:flex;gap:10px;align-items:center;margin-top:12px">
-            <button class="btn" id="generateBtn">Generate Gift Card</button>
+            <button class="btn" id="generateBtn">Generate & Pay</button>
             <button class="btn secondary" id="resetBtn">Reset</button>
           </div>
 
           <div style="margin-top:12px">
             <label class="small">E-Gift card Code</label>
-            <input id="code" type="text" readonly placeholder="Generated code will appear here" />
+            <input id="code" type="text" readonly placeholder="Generated code will appear here after payment" />
           </div>
 
           <div id="successMsg" class="success-msg">✓ Code copied to clipboard!</div>
@@ -301,78 +325,94 @@
     <footer>Built with ❤️ for LIKE — We simplify your needs.</footer>
   </div>
 
+  <!-- UPI PAYMENT MODAL -->
+  <div id="paymentModal" class="payment-modal">
+    <div class="payment-content">
+      <button class="close-modal" onclick="closePaymentModal()">×</button>
+      <h2 style="margin:0 0 8px 0">Complete Your Payment</h2>
+      <p class="muted">Amount: <strong id="paymentAmount">₹50</strong></p>
+
+      <div class="info-box">
+        <h3>🎉 Payment Options</h3>
+        <p class="small">Choose your preferred UPI payment method below</p>
+      </div>
+
+      <div class="upi-options">
+        <div class="upi-btn" onclick="initiateUPIPayment('gpay')">
+          <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Crect width='48' height='48' rx='8' fill='%234285F4'/%3E%3Cpath d='M24 12l8 8h-5v12h-6V20h-5z' fill='white'/%3E%3Cpath d='M12 32h24v4H12z' fill='%2334A853'/%3E%3Cpath d='M12 28h24v3H12z' fill='%23FBBC04'/%3E%3Cpath d='M12 24h24v3H12z' fill='%23EA4335'/%3E%3C/svg%3E" alt="Google Pay">
+          <div class="upi-btn-content">
+            <h4>Google Pay</h4>
+            <p>Pay using Google Pay UPI</p>
+          </div>
+        </div>
+
+        <div class="upi-btn" onclick="initiateUPIPayment('phonepe')">
+          <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Crect width='48' height='48' rx='8' fill='%235F259F'/%3E%3Cpath d='M14 24l10-10v20z' fill='white'/%3E%3Cpath d='M24 14l10 10-10 10z' fill='%23B794F6'/%3E%3C/svg%3E" alt="PhonePe">
+          <div class="upi-btn-content">
+            <h4>PhonePe</h4>
+            <p>Pay using PhonePe UPI</p>
+          </div>
+        </div>
+
+        <div class="upi-btn" onclick="initiateUPIPayment('paytm')">
+          <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Crect width='48' height='48' rx='8' fill='%2300BAF2'/%3E%3Cpath d='M24 12c-6.6 0-12 5.4-12 12s5.4 12 12 12 12-5.4 12-12-5.4-12-12-12zm0 20c-4.4 0-8-3.6-8-8s3.6-8 8-8 8 3.6 8 8-3.6 8-8 8z' fill='white'/%3E%3Ccircle cx='24' cy='24' r='4' fill='white'/%3E%3C/svg%3E" alt="Paytm">
+          <div class="upi-btn-content">
+            <h4>Paytm</h4>
+            <p>Pay using Paytm UPI</p>
+          </div>
+        </div>
+
+        <div class="upi-btn" onclick="initiateUPIPayment('other')">
+          <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Crect width='48' height='48' rx='8' fill='%23FF6B00'/%3E%3Ctext x='24' y='32' font-size='24' font-weight='bold' text-anchor='middle' fill='white'%3EUPI%3C/text%3E%3C/svg%3E" alt="Other UPI">
+          <div class="upi-btn-content">
+            <h4>Other UPI Apps</h4>
+            <p>Scan QR or enter UPI ID</p>
+          </div>
+        </div>
+      </div>
+
+      <div id="qrSection" class="qr-section" style="display:none">
+        <h3 style="margin:0 0 12px 0">Scan QR Code</h3>
+        <div class="qr-code">
+          <img id="qrCodeImg" src="" alt="UPI QR Code">
+        </div>
+        <div class="upi-id">
+          <div class="small muted">UPI ID</div>
+          <div id="upiIdDisplay" style="margin-top:4px">likegiftcards@paytm</div>
+        </div>
+        <button class="btn" onclick="copyUPIId()">Copy UPI ID</button>
+
+        <div class="payment-timer">
+          Time remaining: <span id="timer">5:00</span>
+        </div>
+
+        <div class="payment-instructions">
+          <strong>Instructions:</strong>
+          <ol>
+            <li>Open any UPI app (Google Pay, PhonePe, Paytm, etc.)</li>
+            <li>Scan the QR code or enter the UPI ID manually</li>
+            <li>Enter the exact amount shown above</li>
+            <li>Complete the payment</li>
+            <li>Your gift card will be generated automatically</li>
+          </ol>
+        </div>
+
+        <button class="btn full" onclick="verifyPayment()">I've Completed Payment</button>
+        <button class="btn full secondary" style="margin-top:8px" onclick="closePaymentModal()">Cancel</button>
+      </div>
+    </div>
+  </div>
+
 <script>
 // ========================================
-// 🔧 API CONFIGURATION - UPDATE THIS URL!
+// 🔧 API CONFIGURATION
 // ========================================
 const API_URL = 'https://like-giftcards-api.onrender.com/api';
-  
-  <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
-
-<script>
-const RAZORPAY_KEY = "rzp_test_Rt5D7w6TXkud69";
-
-async function generateGiftCard() {
-  const amount = document.getElementById("amount").value;
-  const email = document.getElementById("yourEmail").value;
-
-  const res = await fetch(
-    "https://like-giftcards-api.onrender.com/api/razorpay/create-order",
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ amount, email })
-    }
-  );
-
-  const order = await res.json();
-
-  const options = {
-    key: RAZORPAY_KEY,
-    amount: order.amount,
-    currency: "INR",
-    name: "LIKE E-Gift Cards",
-    description: "Gift Card Purchase",
-    order_id: order.id,
-    handler: async function (response) {
-      const verify = await fetch(
-        "https://like-giftcards-api.onrender.com/api/razorpay/verify",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(response)
-        }
-      );
-
-      const result = await verify.json();
-      if (result.success) {
-        alert("Payment successful! Gift card generated.");
-      } else {
-        alert("Payment verification failed");
-      }
-    },
-    prefill: { email },
-    method: {
-      upi: true,
-      card: true,
-      netbanking: true
-    },
-    theme: { color: "#ff8a00" }
-  };
-
-  const rzp = new Razorpay(options);
-  rzp.open();
-}
-</script>
-
-
-// ⬆️ Replace with YOUR actual Render URL after deployment
+const UPI_MERCHANT_ID = 'likegiftcards@paytm'; // Replace with your actual UPI ID
 
 // ========================================
 // HELPER FUNCTIONS
 // ========================================
-
-// API Call Helper
 async function apiCall(endpoint, method = 'GET', data = null) {
   try {
     const options = {
@@ -394,12 +434,10 @@ async function apiCall(endpoint, method = 'GET', data = null) {
   }
 }
 
-// Email Validation
 function validateEmail(email) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 }
 
-// Tab switching
 function switchTab(tab) {
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
   document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
@@ -410,644 +448,6 @@ function switchTab(tab) {
 
 // Bank lists
 const banks = {
-  'SAR': [
-    'Saudi National Bank (SNB)',
-    'Al Rajhi Bank',
-    'Riyad Bank',
-    'Saudi Awwal Bank',
-    'Banque Saudi Fransi',
-    'Arab National Bank (ANB)'
-  ],
-  'AED': [
-    'First Abu Dhabi Bank (FAB)',
-    'Emirates NBD',
-    'Abu Dhabi Commercial Bank (ADCB)',
-    'Commercial Bank of Dubai (CBD)',
-    'Mashreq Bank'
-  ],
-  'INR': [
-    'State Bank of India (SBI)',
-    'HDFC Bank',
-    'ICICI Bank',
-    'Axis Bank',
-    'Punjab National Bank'
-  ],
-  'USD': [
-    'Bank of America',
-    'JPMorgan Chase',
-    'Wells Fargo',
-    'Citibank',
-    'US Bank'
-  ],
-  'EUR': [
-    'Deutsche Bank',
-    'BNP Paribas',
-    'Société Générale',
-    'ING Bank',
-    'Santander'
-  ]
-};
-
-// ========================================
-// DOM ELEMENTS
-// ========================================
-const recipient = document.getElementById('recipient');
-const recipientEmail = document.getElementById('recipientEmail');
-const senderEmail = document.getElementById('senderEmail');
-const amount = document.getElementById('amount');
-const currency = document.getElementById('currency');
-const message = document.getElementById('message');
-const generateBtn = document.getElementById('generateBtn');
-const resetBtn = document.getElementById('resetBtn');
-const codeField = document.getElementById('code');
-const codePreview = document.getElementById('codePreview');
-const amountPreview = document.getElementById('amountPreview');
-const currencyPreview = document.getElementById('currencyPreview');
-const messagePreview = document.getElementById('messagePreview');
-const downloadBtn = document.getElementById('downloadBtn');
-const copyBtn = document.getElementById('copyBtn');
-const emailBtn = document.getElementById('emailBtn');
-const saveTemplate = document.getElementById('saveTemplate');
-const loadTemplate = document.getElementById('loadTemplate');
-const successMsg = document.getElementById('successMsg');
-const errorMsg = document.getElementById('errorMsg');
-
-// ========================================
-// DISPLAY FUNCTIONS
-// ========================================
-function updatePreview(){
-  amountPreview.textContent = amount.value || '0';
-  const currSymbol = currency.value || '₹ ';
-  currencyPreview.textContent = currSymbol;
-  messagePreview.textContent = message.value || 'A special gift for you!';
-}
-
-function showSuccess(msg = '✓ Code copied to clipboard!'){
-  successMsg.textContent = msg;
-  successMsg.classList.add('show');
-  errorMsg.classList.remove('show');
-  setTimeout(() => {
-    successMsg.classList.remove('show');
-  }, 3000);
-}
-
-function showError(msg = '✗ Please fix the errors above'){
-  errorMsg.textContent = msg;
-  errorMsg.classList.add('show');
-  successMsg.classList.remove('show');
-  setTimeout(() => {
-    errorMsg.classList.remove('show');
-  }, 3000);
-}
-
-// ========================================
-// CREATE GIFT CARD - UPDATED WITH API
-// ========================================
-generateBtn.addEventListener('click', async () => {
-  try {
-    // ✅ Validation
-    if (!senderEmail.value || !validateEmail(senderEmail.value)) {
-      showError('✗ Please enter a valid sender email');
-      return;
-    }
-
-    if (!amount.value || amount.value < 1) {
-      showError('✗ Please enter a valid amount');
-      return;
-    }
-
-    generateBtn.disabled = true;
-    generateBtn.textContent = 'Redirecting to payment...';
-
-    // ✅ CREATE RAZORPAY ORDER
-    const orderRes = await fetch(
-      `${API_URL}/razorpay/create-order`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          amount: amount.value,
-          email: senderEmail.value
-        })
-      }
-    );
-
-    const order = await orderRes.json();
-
-    // ✅ OPEN RAZORPAY
-    const options = {
-      method: {
-  upi: true,
-  card: true,
-  netbanking: true,
-  wallet: false
-}
-
-      key: RAZORPAY_KEY,
-      amount: order.amount,
-      currency: "INR",
-      name: "LIKE Gift Cards",
-      description: "Gift Card Purchase",
-      order_id: order.id,
-      
-
-      handler: async function (response) {
-        // ✅ VERIFY PAYMENT
-        const verifyRes = await fetch(
-          `${API_URL}/razorpay/verify`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              ...response,
-              recipient: recipient.value,
-              recipientEmail: recipientEmail.value,
-              senderEmail: senderEmail.value,
-              amount: amount.value,
-              currency: currency.options[currency.selectedIndex].text,
-              currencySymbol: currency.value,
-              message: message.value,
-              denomType: document.getElementById('denomType').value
-            })
-          }
-        );
-
-        const result = await verifyRes.json();
-
-        if (result.success) {
-          codeField.value = result.code;
-          codePreview.textContent = result.code;
-          updatePreview();
-          showSuccess('✓ Payment successful! Gift card created.');
-        } else {
-          showError('✗ Payment verification failed');
-        }
-      },
-
-      theme: { color: "#ff8a00" }
-    };
-
-    new Razorpay(options).open();
-
-  } catch (err) {
-    console.error(err);
-    showError('✗ Payment failed');
-  } finally {
-    generateBtn.disabled = false;
-    generateBtn.textContent = 'Generate Gift Card';
-  }
-});
-
-
-// ========================================
-// RESET BUTTON
-// ========================================
-resetBtn.addEventListener('click', ()=>{
-  recipient.value=''; 
-  recipientEmail.value='';
-  senderEmail.value='';
-  amount.value = 50; 
-  currency.value='₹ '; 
-  message.value=''; 
-  codeField.value=''; 
-  codePreview.textContent='LIKE-XXXX-XXXX'; 
-  updatePreview();
-});
-
-// ========================================
-// COPY CODE BUTTON
-// ========================================
-copyBtn.addEventListener('click', ()=>{
-  if(!codeField.value){ 
-    alert('Generate a code first.'); 
-    return; 
-  }
-  navigator.clipboard.writeText(codeField.value).then(()=>{
-    showSuccess('✓ Code copied to clipboard!');
-  }).catch(()=>{ 
-    alert('Could not copy — please copy manually.'); 
-  });
-});
-
-// ========================================
-// CANVAS DRAWING (for PNG download)
-// ========================================
-async function drawCardToCanvas(){
-  const canvas = document.getElementById('exportCanvas');
-  const ctx = canvas.getContext('2d');
-  canvas.width = 1200; 
-  canvas.height = 700;
-  
-  const grad = ctx.createLinearGradient(0,0,canvas.width,0);
-  grad.addColorStop(0,'#0b355b'); 
-  grad.addColorStop(1,'#093b6d');
-  ctx.fillStyle = grad; 
-  ctx.fillRect(0,0,canvas.width,canvas.height);
-  
-  const logoImg = new Image();
-  logoImg.crossOrigin = 'anonymous';
-  logoImg.src = 'https://turquoise-reasonable-penguin-388.mypinata.cloud/ipfs/bafkreiconcyyp3447jlcrmsmil6w3punwvyvoxqkzqh76uq22u5ms34amq';
-  
-  return new Promise((res,rej)=>{
-    logoImg.onload = ()=>{
-      const lgSize = 160;
-      ctx.save();
-      ctx.beginPath(); 
-      ctx.arc(60+lgSize/2, 60+lgSize/2, lgSize/2, 0, Math.PI*2); 
-      ctx.closePath(); 
-      ctx.clip();
-      ctx.drawImage(logoImg, 60, 60, lgSize, lgSize);
-      ctx.restore();
-      
-      ctx.fillStyle='#fff'; 
-      ctx.font='bold 48px sans-serif'; 
-      ctx.fillText('LIKE', 60+lgSize+28, 60+60);
-      ctx.font='24px sans-serif'; 
-      ctx.fillStyle='rgba(255,255,255,0.9)'; 
-      ctx.fillText('Gift Card', 60+lgSize+28, 60+100);
-      
-      ctx.font='bold 72px sans-serif'; 
-      ctx.fillStyle='#fff'; 
-      ctx.fillText((currency.value||'₹ ')+ (amount.value||'0'), canvas.width - 420, 160);
-      
-      ctx.font='24px sans-serif'; 
-      ctx.fillStyle='rgba(255,255,255,0.95)'; 
-      const msg = message.value || 'A special gift for you!';
-      ctx.fillText(msg, 60, 260);
-      
-      ctx.fillStyle='rgba(255,255,255,0.08)'; 
-      ctx.fillRect(60, 320, 480, 60);
-      ctx.font='26px monospace'; 
-      ctx.fillStyle='#fff'; 
-      ctx.fillText(codeField.value || 'LIKE-XXXX-XXXX', 78, 360);
-      
-      res(canvas.toDataURL('image/png'));
-    };
-    logoImg.onerror = ()=> rej(new Error('Logo load failed'));
-  });
-}
-
-// ========================================
-// DOWNLOAD PNG BUTTON
-// ========================================
-downloadBtn.addEventListener('click', async ()=>{
-  if(!codeField.value){ 
-    alert('Generate a card first.'); 
-    return; 
-  }
-  try{
-    const dataUrl = await drawCardToCanvas();
-    const a = document.createElement('a'); 
-    a.href = dataUrl; 
-    a.download = (codeField.value || 'like-giftcard') + '.png';
-    document.body.appendChild(a); 
-    a.click(); 
-    a.remove();
-  }catch(e){ 
-    alert('Could not generate image: '+e.message); 
-  }
-});
-
-// ========================================
-// EMAIL BUTTON (opens mailto)
-// ========================================
-emailBtn.addEventListener('click', async ()=>{
-  if(!codeField.value){ 
-    showError('✗ Please generate a gift card first');
-    return; 
-  }
-  
-  if(!senderEmail.value || !validateEmail(senderEmail.value)){
-    showError('✗ Please enter a valid email address');
-    senderEmail.focus();
-    return;
-  }
-
-  if(recipientEmail.value && !validateEmail(recipientEmail.value)){
-    showError('✗ Recipient email is invalid');
-    recipientEmail.focus();
-    return;
-  }
-
-  try{
-    const recipientName = recipient.value || 'Valued Customer';
-    const giftMessage = message.value || 'A special gift for you!';
-    const cardAmount = currency.value + amount.value;
-    
-    const subject = encodeURIComponent(`Your LIKE Gift Card - ${cardAmount}`);
-    const body = encodeURIComponent(
-      `Hi ${recipientName},\n\n` +
-      `You have received a LIKE E-Gift Card!\n\n` +
-      `Gift Card Code: ${codeField.value}\n` +
-      `Amount: ${cardAmount}\n` +
-      `Message: ${giftMessage}\n\n` +
-      `To redeem your gift card, visit https://hungryhawk87.github.io/linkegiftcard.github.io/ and enter your code.\n\n` +
-      `Thank you for choosing LIKE!\n\n` +
-      `---\n` +
-      `This gift card was sent from: ${senderEmail.value}\n` +
-      `${recipientEmail.value ? 'Sent to: ' + recipientEmail.value : ''}`
-    );
-    
-    const mailtoLink = `mailto:${recipientEmail.value || senderEmail.value}?subject=${subject}&body=${body}`;
-    window.location.href = mailtoLink;
-    
-    showSuccess('✓ Email client opened! Please attach the downloaded PNG image.');
-    
-    setTimeout(async () => {
-      try{
-        const dataUrl = await drawCardToCanvas();
-        const a = document.createElement('a'); 
-        a.href = dataUrl; 
-        a.download = (codeField.value || 'like-giftcard') + '.png';
-        document.body.appendChild(a); 
-        a.click(); 
-        a.remove();
-      }catch(e){
-        console.error('Auto-download failed:', e);
-      }
-    }, 500);
-    
-  }catch(e){ 
-    showError('✗ Could not prepare email: ' + e.message);
-  }
-});
-
-// ========================================
-// SAVE/LOAD TEMPLATE (uses localStorage for templates only)
-// ========================================
-saveTemplate.addEventListener('click', ()=>{
-  const template = {
-    amount: amount.value, 
-    currency: currency.value, 
-    message: message.value,
-    senderEmail: senderEmail.value
-  };
-  try {
-    localStorage.setItem('like_gift_template', JSON.stringify(template));
-    showSuccess('✓ Template saved!');
-  } catch(e) {
-    showError('✗ Could not save template');
-  }
-});
-
-loadTemplate.addEventListener('click', ()=>{
-  try {
-    const t = localStorage.getItem('like_gift_template');
-    if(!t){ 
-      showError('✗ No template found');
-      return; 
-    }
-    const parsed = JSON.parse(t); 
-    amount.value = parsed.amount || 50; 
-    currency.value = parsed.currency || '₹ '; 
-    message.value = parsed.message || ''; 
-    senderEmail.value = parsed.senderEmail || '';
-    updatePreview();
-    showSuccess('✓ Template loaded!');
-  } catch(e) {
-    showError('✗ Could not load template');
-  }
-});
-
-// Initialize create section
-updatePreview();
-amount.addEventListener('input', updatePreview); 
-currency.addEventListener('change', updatePreview); 
-message.addEventListener('input', updatePreview);
-
-// ========================================
-// REDEEM SECTION
-// ========================================
-const redeemCode = document.getElementById('redeemCode');
-const verifyBtn = document.getElementById('verifyBtn');
-const redeemDetails = document.getElementById('redeemDetails');
-const redeemSuccessMsg = document.getElementById('redeemSuccessMsg');
-const redeemErrorMsg = document.getElementById('redeemErrorMsg');
-const withdrawalMethod = document.getElementById('withdrawalMethod');
-const bankOptions = document.getElementById('bankOptions');
-const cryptoOptions = document.getElementById('cryptoOptions');
-const bankSelect = document.getElementById('bankSelect');
-const submitRedeemBtn = document.getElementById('submitRedeemBtn');
-
-function showRedeemSuccess(msg){
-  redeemSuccessMsg.textContent = msg;
-  redeemSuccessMsg.classList.add('show');
-  redeemErrorMsg.classList.remove('show');
-  setTimeout(() => {
-    redeemSuccessMsg.classList.remove('show');
-  }, 3000);
-}
-
-function showRedeemError(msg){
-  redeemErrorMsg.textContent = msg;
-  redeemErrorMsg.classList.add('show');
-  redeemSuccessMsg.classList.remove('show');
-  setTimeout(() => {
-    redeemErrorMsg.classList.remove('show');
-  }, 3000);
-}
-
-// ========================================
-// VERIFY GIFT CARD - UPDATED WITH API
-// ========================================
-verifyBtn.addEventListener('click', async () => {
-  try {
-    const code = redeemCode.value.trim().toUpperCase();
-    
-    if (!code) {
-      showRedeemError('✗ Please enter a gift card code');
-      return;
-    }
-    
-    // Show loading
-    verifyBtn.disabled = true;
-    verifyBtn.textContent = 'Verifying...';
-    
-    // Call API
-    const result = await apiCall('/giftcards/verify', 'POST', { code });
-    
-    if (result.success) {
-      const card = result.data;
-      
-      // Update UI
-      document.getElementById('verifiedCode').textContent = card.code;
-      document.getElementById('verifiedAmount').textContent = card.amount;
-      document.getElementById('verifiedCurrency').textContent = card.currencySymbol || card.currency;
-      
-      const statusEl = document.getElementById('verifiedStatus');
-      statusEl.textContent = card.status.charAt(0).toUpperCase() + card.status.slice(1);
-      statusEl.style.color = card.status === 'active' ? '#00c853' : '#ff3b30';
-      
-      if (card.status === 'active') {
-        redeemDetails.classList.add('show');
-        showRedeemSuccess('✓ Gift card verified successfully!');
-        
-        // Update bank list based on currency
-        updateBankListFromCurrency(card.currency);
-      } else {
-        redeemDetails.classList.remove('show');
-        showRedeemError(`✗ Gift card is ${card.status}`);
-      }
-    }
-    
-  } catch (error) {
-    redeemDetails.classList.remove('show');
-    showRedeemError('✗ ' + error.message);
-  } finally {
-    verifyBtn.disabled = false;
-    verifyBtn.textContent = 'Verify Gift Card';
-  }
-});
-
-// ========================================
-// PAYMENT OPTIONS TOGGLE
-// ========================================
-  
-function showPaymentOptions(){
-  const method = withdrawalMethod.value;
-  
-  bankOptions.classList.remove('show');
-  cryptoOptions.classList.remove('show');
-  
-  if(method === 'bank'){
-    bankOptions.classList.add('show');
-  } else if(method === 'crypto'){
-    cryptoOptions.classList.add('show');
-  }
-}
-
-// ========================================
-// UPDATE BANK LIST BASED ON CURRENCY
-// ========================================
-function updateBankListFromCurrency(currencyStr) {
-  let currencyCode = 'SAR';
-  
-  if (currencyStr.includes('SAR') || currencyStr.includes('﷼')) currencyCode = 'SAR';
-  else if (currencyStr.includes('USD') || currencyStr.includes('$')) currencyCode = 'USD';
-  else if (currencyStr.includes('EUR') || currencyStr.includes('€')) currencyCode = 'EUR';
-  else if (currencyStr.includes('AED') || currencyStr.includes('د.إ')) currencyCode = 'AED';
-  else if (currencyStr.includes('INR') || currencyStr.includes('₹')) currencyCode = 'INR';
-  
-  const bankList = banks[currencyCode] || banks['SAR'];
-  
-  bankSelect.innerHTML = '<option value="">-- Select Bank --</option>';
-  bankList.forEach(bank => {
-    const option = document.createElement('option');
-    option.value = bank;
-    option.textContent = bank;
-    bankSelect.appendChild(option);
-  });
-}
-
-// ========================================
-// SUBMIT REDEMPTION - UPDATED WITH API
-// ========================================
-submitRedeemBtn.addEventListener('click', async () => {
-  try {
-    const code = redeemCode.value.trim().toUpperCase();
-    const method = withdrawalMethod.value;
-    const email = document.getElementById('redeemEmail').value;
-    
-    // Validation
-    if (!code) {
-      showRedeemError('✗ Invalid gift card code');
-      return;
-    }
-    
-    if (!method) {
-      showRedeemError('✗ Please select a withdrawal method');
-      return;
-    }
-    
-    if (!email || !validateEmail(email)) {
-      showRedeemError('✗ Please enter a valid email');
-      return;
-    }
-    
-    let requestData = {
-      code,
-      withdrawalMethod: method,
-      email
-    };
-    
-    // Bank transfer validation
-    if (method === 'bank') {
-      const bank = bankSelect.value;
-      const accName = document.getElementById('accountName').value;
-      const accNum = document.getElementById('accountNumber').value;
-      
-      if (!bank || !accName || !accNum) {
-        showRedeemError('✗ Please fill in all bank details');
-        return;
-      }
-      
-      requestData.bankName = bank;
-      requestData.accountName = accName;
-      requestData.accountNumber = accNum;
-      requestData.swiftCode = document.getElementById('swiftCode').value;
-    }
-    
-    // Crypto validation
-    if (method === 'crypto') {
-      const network = document.getElementById('cryptoNetwork').value;
-      const wallet = document.getElementById('walletAddress').value;
-      
-      if (!network || !wallet) {
-        showRedeemError('✗ Please fill in all crypto details');
-        return;
-      }
-      
-      if (wallet.length < 26) {
-        showRedeemError('✗ Invalid wallet address');
-        return;
-      }
-      
-      requestData.cryptoNetwork = network;
-      requestData.walletAddress = wallet;
-    }
-    
-    // Show loading
-    submitRedeemBtn.disabled = true;
-    submitRedeemBtn.textContent = 'Processing...';
-    
-    // Call API
-    const result = await apiCall('/giftcards/redeem', 'POST', requestData);
-    
-    if (result.success) {
-      document.getElementById('verifiedStatus').textContent = 'Redeemed';
-      document.getElementById('verifiedStatus').style.color = '#ff3b30';
-      
-      showRedeemSuccess('✓ Redemption successful! Check your email for confirmation.');
-      
-      // Reset form after 3 seconds
-      setTimeout(() => {
-        redeemCode.value = '';
-        redeemDetails.classList.remove('show');
-        withdrawalMethod.value = '';
-        document.getElementById('redeemEmail').value = '';
-        bankOptions.classList.remove('show');
-        cryptoOptions.classList.remove('show');
-        document.getElementById('accountName').value = '';
-        document.getElementById('accountNumber').value = '';
-        document.getElementById('swiftCode').value = '';
-        document.getElementById('cryptoNetwork').value = '';
-        document.getElementById('walletAddress').value = '';
-      }, 3000);
-    }
-    
-  } catch (error) {
-    showRedeemError('✗ ' + error.message);
-  } finally {
-    submitRedeemBtn.disabled = false;
-    submitRedeemBtn.textContent = 'Submit Redemption Request';
-  }
-});
-
-// ========================================
-// LOG API CONNECTION
-// ========================================
-console.log('✓ Frontend connected to API:', API_URL);
-console.log('✓ LIKE Gift Cards system ready!');
-</script>
-</body>
-</html>
+  'SAR': ['Saudi National Bank (SNB)', 'Al Rajhi Bank', 'Riyad Bank', 'Saudi Awwal Bank', 'Banque Saudi Fransi', 'Arab National Bank (ANB)'],
+  'AED': ['First Abu Dhabi Bank (FAB)', 'Emirates NBD', 'Abu Dhabi Commercial Bank (ADCB)', 'Commercial Bank of Dubai (CBD)', 'Mashreq Bank'],
+  'INR': ['State Bank of India (SBI)', 'HDFC Bank', 'ICICI Bank',
